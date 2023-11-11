@@ -44,15 +44,24 @@ async def on_message(ctx):
     elif ctx.author.id != bot.user.id:
         if ctx.content.find("gay spar") != -1:
             await ctx.reply('fruity', mention_author=True)
-            await ctx.message.add_reaction('🏳️‍🌈')
+            await ctx.add_reaction('🏳️‍🌈')
         elif ctx.content.find("eddie") != -1:
             await ctx.reply('fucker', mention_author=True)
         elif ctx.content.find("fun fact") != -1:
-            await ctx.message.add_reaction('👌')
+            await ctx.add_reaction('👌')
             rand = random.randint(1, checkFunFactsLength())
             msg = weatherFunFact()
             output = msg[f'{rand}']
             await ctx.reply(output, mention_author=True)
+        elif ctx.content.find("meteor") != -1:
+            await ctx.add_reaction('☄️')
+        elif ctx.content.find("snake") != -1:
+            await ctx.add_reaction('🐍')
+        elif ctx.content.find("smudge") != -1:
+            if ctx.guild.id != 690691828307066930:
+                return
+            else:
+                await ctx.reply('<:smudge:726830894371045466>')
 
         if ctx.author.id == 442008100392927233 & jackBOOL:
             await ctx.reply('shut up bitch', mention_author=True)
@@ -227,13 +236,13 @@ def openweatherDataToEmbed(data, arg):
     country_code = country.lower()
     title = f"Weather for {name} :flag_{country_code}:"
     embed = discord.Embed(title=title)
-    embed.add_field(name="Weather description:", value=weather, inline=False)
-    embed.add_field(name="Avg. Temperature (Feels like):", value=f"{temperature}°C ({feels_like}°C)", inline=False)
-    embed.add_field(name="Pressure:", value=f"{pressure}hPa", inline=False)
-    embed.add_field(name="Humidity:", value=f"{humidity}%", inline=False)
-    embed.add_field(name="Visibility:", value=f"{visibility}m", inline=False)
-    embed.add_field(name="Wind Speed:", value=f"{wind_speed_knots}kts", inline=True)
-    embed.add_field(name="Wind Dir:", value=f"{wind_dir}°, {short_name}", inline=True)
+    embed.add_field(name="Weather description 📝:", value=weather, inline=False)
+    embed.add_field(name="Avg. Temperature (Feels like) 🌡️:", value=f"{temperature}°C ({feels_like}°C)", inline=False)
+    embed.add_field(name="Pressure 🕛:", value=f"{pressure}hPa", inline=False)
+    embed.add_field(name="Humidity 💦:", value=f"{humidity}%", inline=False)
+    embed.add_field(name="Visibility 👁️‍🗨️:", value=f"{visibility}m", inline=False)
+    embed.add_field(name="Wind Speed ༄:", value=f"{wind_speed_knots}kts", inline=True)
+    embed.add_field(name="Wind Dir 🧭:", value=f"{wind_dir}°, {short_name}", inline=True)
     embed.set_footer(text=f"Lat: {lat}, Lon: {lon}")
     return embed
 
@@ -278,29 +287,29 @@ def metDataToEmbed(data, lat, long, name):
     # splash is the first embed that will appear when the command is called
     splash = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
                                 f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
-    splash.add_field(name='Temperature:', value=f'{temp}°C')
-    splash.add_field(name='Wind Direction:', value=f'{wind_dir}, {short_name}', inline=True)
-    splash.add_field(name='Wind Speed:', value=f'{wind_speed_knots}kts', inline=True)
-    splash.add_field(name='Wind Gust:', value=f'{wind_gust_knots}kts', inline=True)
+    splash.add_field(name='Temperature 🌡️:', value=f'{temp}°C')
+    splash.add_field(name='Wind Direction 🧭:', value=f'{wind_dir}, {short_name}', inline=True)
+    splash.add_field(name='Wind Speed ༄:', value=f'{wind_speed_knots}kts ({wind_gust_knots}kts)', inline=True)
+    # splash.add_field(name='Wind Gust:', value=f'{wind_gust_knots}kts', inline=True)
     # splash.add_field(name='Beaufort:', value=f'Force {wind_beaufort}', inline=True)
     # splash.add_field(name='Humidity:', value=f'{humidity}%')
     # splash.add_field(name='Pressure:', value=f'{pressure}hPa')
-    splash.add_field(name='Cloud Cover:', value=f'{cloud_cover}%')
+    splash.add_field(name='Cloud Cover ☁️:', value=f'{cloud_cover}%')
     splash.add_field(name='Chance of Rain 🌧️:', value=f'{prob}%')
     splash.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
 
     # expanded is a more detailed version of splash
     expanded = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
                                 f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
-    expanded.add_field(name='Temperature:', value=f'{temp}°C')
-    expanded.add_field(name='Wind Direction:', value=f'{wind_dir}, {short_name}', inline=True)
-    expanded.add_field(name='Wind Speed:', value=f'{wind_speed_knots}kts', inline=True)
-    expanded.add_field(name='Wind Gust:', value=f'{wind_gust_knots}kts', inline=True)
-    expanded.add_field(name='Beaufort:', value=f'Force {wind_beaufort}', inline=True)
-    expanded.add_field(name='Global Radiation:', value=f'{global_rads}{rads_unit}')
-    expanded.add_field(name='Humidity:', value=f'{humidity}%')
-    expanded.add_field(name='Pressure:', value=f'{pressure}hPa')
-    expanded.add_field(name='Cloud Cover:', value=f'{cloud_cover}%')
+    expanded.add_field(name='Temperature 🌡️:', value=f'{temp}°C')
+    expanded.add_field(name='Wind Direction 🧭:', value=f'{wind_dir}, {short_name}', inline=True)
+    expanded.add_field(name='Wind Speed ༄:', value=f'{wind_speed_knots}kts', inline=True)
+    expanded.add_field(name='Wind Gust ༄:', value=f'{wind_gust_knots}kts', inline=True)
+    expanded.add_field(name='Beaufort 🌊:', value=f'Force {wind_beaufort}', inline=True)
+    expanded.add_field(name='Global Radiation ☢️:', value=f'{global_rads}{rads_unit}')
+    expanded.add_field(name='Humidity 💦:', value=f'{humidity}%')
+    expanded.add_field(name='Pressure 🕛:', value=f'{pressure}hPa')
+    expanded.add_field(name='Cloud Cover ☁️:', value=f'{cloud_cover}%')
     expanded.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
 
     # cloud is expanded data on clouds alone
