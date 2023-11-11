@@ -80,13 +80,15 @@ async def snake(ctx: commands.Context):
 
 @bot.command()
 # echos what the player says in arg
-async def echo(ctx, arg='Tell me something to say back'):
+async def echo(ctx, arg='Tell me something to say back!'):
     await ctx.reply(arg)
 
 
 @bot.command()
 # this command disables or enables jack mode which ties in with the on_message listener
 async def jack(ctx):
+    if ctx.guild.id != 690691828307066930:
+        return
     global jackBOOL
     if not jackBOOL:
         await ctx.reply("Jack mode enabled")
@@ -176,21 +178,105 @@ async def git(ctx):
     await ctx.reply("https://github.com/howlism/weather-bot")
 
 
+# bot help command
 @bot.command()
 async def whelp(ctx):
-    # bot help command
-    embed = discord.Embed(title="Weather-Bot Help", description=f'List of currently supported commands!')
-    embed.add_field(name='$echo (arg)', value='Replies to your message with whatever the (arg) is.')
-    embed.add_field(name='$jack', value=f'Enables jack mode. Currently: {jackBOOL}')
-    embed.add_field(name='$forecast', value=f'Returns a forecast for any city in the world. Source: OpenWeather. '
-                                            f'Default = Cobh')
-    embed.add_field(name='$met', value=f'Returns a forecast for any major city in Ireland. Source: Met Eireann. '
-                                       f'Default: Cobh')
-    embed.add_field(name='$git', value=f'Returns the link to the public repo! '
-                                       f'Report issues and check out the code there.')
-    embed.set_footer(text=f"Developed by howlism. Version: {ver}")
-    await ctx.send(embed=embed)
+    def check(reaction, user):
+        return user == ctx.author and (
+                str(reaction.emoji) ==
+                "1️⃣" or "2️⃣" or "3️⃣" or "4️⃣" or "5️⃣" or "6️⃣" or "7️⃣" or "8️⃣" or "9️⃣" or "➡️" or '⬅')
 
+    def embedCreation():
+        splash_help = discord.Embed(title="🌤️ Weather-Bot Help", description=f'List of currently supported commands!')
+        splash_help.add_field(name='1. $echo (arg)', value='Replies to your message with whatever the (arg) is.')
+        splash_help.add_field(name='2. $jack', value=f'Enables jack mode. Currently: {jackBOOL}')
+        splash_help.add_field(name='3. $forecast (arg)', value=f'Returns a forecast for any city in the world. Source: '
+                                                               f'OpenWeather. Default = Cobh')
+        splash_help.add_field(name='4. $met (arg)',
+                              value=f'Returns a forecast for any major city in Ireland. Source: Met Eireann. '
+                                    f'Default: Cobh')
+        splash_help.add_field(name='5. $git', value=f'Returns the link to the public repo! '
+                                                    f'Report issues and check out the code there.')
+        splash_help.add_field(name='Need help with a specific command?', value='Click its corresponding '
+                                                                               'number in the reactions!')
+        splash_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+
+        echo_help = discord.Embed(title="🌤️ $echo Help", description=f'Syntax and functionality for $echo!')
+        echo_help.add_field(name='$echo (arg)', value='Replies to your message with whatever the (arg) is.')
+        echo_help.add_field(name='arg', value=f'Item to return in reply. Default: Tell me something to say back!')
+        echo_help.add_field(name='Example: ',
+                            value=f'$echo Hello! returns: Hello!')
+        echo_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+
+        jack_help = discord.Embed(title='🌤️ $jack Help', description='Syntax and functionality for $jack!')
+        jack_help.add_field(name='$jack', value=f'Enables jack mode. Currently: {jackBOOL}')
+        jack_help.add_field(name='Functionality:', value=f'Jack mode is specific to one server. IYKYK :>')
+        jack_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+
+        forecast_help = discord.Embed(title='🌤️ $forecast Help', description='Syntax and functionality for $forecast!')
+        forecast_help.add_field(name='$forecast (arg)', value=f'Returns a forecast for any city in the world. Source: '
+                                                              f'OpenWeather. Default = Cobh')
+        forecast_help.add_field(name='arg:', value=f'City name.')
+        forecast_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+
+        met_help = discord.Embed(title='🌤️ $met Help', description='Syntax and functionality for $met!')
+        met_help.add_field(name='$met (arg)',
+                           value=f'Returns a forecast for any major city in Ireland. Source: Met Eireann. '
+                                 f'Default: Cobh')
+        met_help.add_field(name='arg:', value=f'Major Irish city name.')
+        met_help.add_field(name='Menus:', value=f'Clicking on the reactions to the message will change '
+                                                f'the contents to a more specified output of data.')
+        met_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+
+        git_help = discord.Embed(title='🌤️ $git Help', description='Syntax and functionality for $git!')
+        git_help.add_field(name='$git',
+                           value='Returns the link to the public repo! Report issues and check out the code there.')
+        git_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+        return [splash_help, echo_help, jack_help, forecast_help, met_help, git_help]
+
+    async def embedEdit(embed, arg, lst):
+        await embed.edit(embed=lst[arg])
+        await msg.add_reaction('⬅')
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+        except TimeoutError:
+            await msg.clear_reactions()
+        else:
+            if str(reaction.emoji) == '⬅':
+                await helpSplash(msg, embeds)
+
+    async def helpSplash(msg, lst):
+        await msg.clear_reactions()
+        await msg.edit(embed=lst[0])
+        await msg.add_reaction('1️⃣')
+        await msg.add_reaction('2️⃣')
+        await msg.add_reaction('3️⃣')
+        await msg.add_reaction('4️⃣')
+        await msg.add_reaction('5️⃣')
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+        except TimeoutError:
+            await msg.clear_reactions()
+        else:
+            if str(reaction.emoji) == '1️⃣':
+                await msg.clear_reactions()
+                await embedEdit(msg, 1, embeds)
+            elif str(reaction.emoji) == '2️⃣':
+                await msg.clear_reactions()
+                await embedEdit(msg, 2, embeds)
+            elif str(reaction.emoji) == '3️⃣':
+                await msg.clear_reactions()
+                await embedEdit(msg, 3, embeds)
+            elif str(reaction.emoji) == '4️⃣':
+                await msg.clear_reactions()
+                await embedEdit(msg, 4, embeds)
+            elif str(reaction.emoji) == '5️⃣':
+                await msg.clear_reactions()
+                await embedEdit(msg, 5, embeds)
+
+    embeds = embedCreation()
+    msg = await ctx.send(embed=embeds[0])
+    await helpSplash(msg, embeds)
 
 def get_openweather_forecast(location):
     # requests data from openweather, checks the request went properly, and returns the json data as data
@@ -286,7 +372,7 @@ def metDataToEmbed(data, lat, long, name):
     # applies those variables in a discord embed
     # splash is the first embed that will appear when the command is called
     splash = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
-                                f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
+                                 f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
     splash.add_field(name='Temperature 🌡️:', value=f'{temp}°C')
     splash.add_field(name='Wind Direction 🧭:', value=f'{wind_dir}, {short_name}', inline=True)
     splash.add_field(name='Wind Speed ༄:', value=f'{wind_speed_knots}kts ({wind_gust_knots}kts)', inline=True)
@@ -300,7 +386,7 @@ def metDataToEmbed(data, lat, long, name):
 
     # expanded is a more detailed version of splash
     expanded = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
-                                f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
+                                   f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
     expanded.add_field(name='Temperature 🌡️:', value=f'{temp}°C')
     expanded.add_field(name='Wind Direction 🧭:', value=f'{wind_dir}, {short_name}', inline=True)
     expanded.add_field(name='Wind Speed ༄:', value=f'{wind_speed_knots}kts', inline=True)
@@ -323,7 +409,7 @@ def metDataToEmbed(data, lat, long, name):
 
     # precip will be expanded data on precipitation
     precip = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
-                                f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
+                                 f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
     precip.add_field(name='Chance of Rain 🌧️:', value=f'{prob}%')
     precip.add_field(name='Average Rainfall 🌧️:', value=f'{avg_rainfall}mm', inline=True)
     precip.add_field(name='Min Rainfall 🌧️:', value=f'{min_rainfall}mm')
