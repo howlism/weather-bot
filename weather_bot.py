@@ -5,19 +5,24 @@ import discord
 import requests
 import xmltodict
 from discord.ext import commands
-from unicodedata import lookup
+from dotenv import load_dotenv
 
-dir = os.getcwd()
-with open(f"{dir}/config.json", 'r') as file:
-    print("Loaded config.json")
-    data = json.load(file)
+# loads .env
+load_dotenv()
+print(".env loaded")
+
+# assigns vars to values in .env
+maxPoints = int(os.getenv('maxPoints'))
+token = os.getenv('dToken')
+OPENWEATHER_API_KEY = os.getenv('openweatherapi')
+ver = os.getenv('version')
+print("vars assigned")
+
 # stuff to deal with the api requests
-OPENWEATHER_API_KEY = data['openweatherapi']
 OPENWEATHER_FORECAST_BASE_URL = 'http://api.openweathermap.org/data/2.5/weather'
 METEIREANN_BASE_URL = 'http://metwdb-openaccess.ichec.ie/metno-wdb2ts/locationforecast?'
 # maxPoints found in the config.txt jackBOOL relates to the jack command (making jack's life hard :>)
 jackBOOL = False
-maxPoints = int(data['maxPoints'])
 # standard bot initialization: currently using all intents until i figure out what all of
 # what i want the finished bot to do
 intents = discord.Intents.all()
@@ -26,7 +31,7 @@ bot = commands.Bot('$', intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"We have logged in as {bot.user} with {bot.user.id} Version: {data['version']}")
+    print(f"We have logged in as {bot.user} with {bot.user.id} Version: {ver}")
 
 
 @bot.listen('on_message')
@@ -114,7 +119,7 @@ async def whelp(ctx):
                                        f'Default: Cobh')
     embed.add_field(name='$git', value=f'Returns the link to the public repo! '
                                        f'Report issues and check out the code there.')
-    embed.set_footer(text=f"Developed by howlism. Version: {data['version']}")
+    embed.set_footer(text=f"Developed by howlism. Version: {ver}")
     await ctx.send(embed=embed)
 
 
@@ -308,4 +313,4 @@ def getShortName(name):
 
 
 if __name__ == '__main__':
-    bot.run(data['dToken'])
+    bot.run(token)
