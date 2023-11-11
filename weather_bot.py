@@ -116,13 +116,9 @@ async def met(ctx, arg='cobh'):
         return user == ctx.author and (
                 str(reaction.emoji) == "📊" or "🌧️" or "☁️" or "⬅" or "5️⃣" or "6️⃣" or "7️⃣" or "8️⃣" or "9️⃣" or "➡️")
 
-    if checkCity(arg):
-        x = countCity(arg)
-        output = findCityData(x)
-        data = get_met_forecast(output[0], output[1])
-        name = arg.capitalize()
-        embeds = metDataToEmbed(data, output[0], output[1], name)
-        msg = await ctx.send(embed=embeds['splash'])
+    async def metEdits(msg, dict):
+        await msg.clear_reactions()
+        await msg.edit(embed=dict['splash'])
         await msg.add_reaction('📊')
         await msg.add_reaction('🌧️')
         await msg.add_reaction('☁️')
@@ -141,8 +137,7 @@ async def met(ctx, arg='cobh'):
                     await msg.clear_reactions()
                 else:
                     if str(reaction.emoji) == '⬅':
-                        await msg.delete()
-                        await met(ctx, arg)
+                        await metEdits(msg, embeds)
             elif str(reaction.emoji) == '🌧️':
                 await msg.edit(embed=embeds['precip'])
                 await msg.clear_reactions()
@@ -153,8 +148,7 @@ async def met(ctx, arg='cobh'):
                     await msg.clear_reactions()
                 else:
                     if str(reaction.emoji) == '⬅':
-                        await msg.delete()
-                        await met(ctx, arg)
+                        await metEdits(msg, embeds)
             elif str(reaction.emoji) == '☁️':
                 await msg.edit(embed=embeds['cloud'])
                 await msg.clear_reactions()
@@ -165,11 +159,18 @@ async def met(ctx, arg='cobh'):
                     await msg.clear_reactions()
                 else:
                     if str(reaction.emoji) == '⬅':
-                        await msg.delete()
-                        await met(ctx, arg)
+                        await metEdits(msg, embeds)
 
+    if checkCity(arg):
+        x = countCity(arg)
+        output = findCityData(x)
+        data = get_met_forecast(output[0], output[1])
+        name = arg.capitalize()
+        embeds = metDataToEmbed(data, output[0], output[1], name)
+        msg = await ctx.send(embed=embeds['splash'])
+        await metEdits(msg, embeds)
     else:
-        await ctx.reply("Please specify an Irish city.")
+        await ctx.reply('Please specify a major Irish city.')
 
 
 @bot.command()
