@@ -6,6 +6,7 @@ import requests
 import xmltodict
 from discord.ext import commands
 from dotenv import load_dotenv
+import random
 
 # loads .env
 load_dotenv()
@@ -38,13 +39,18 @@ async def on_ready():
 # this listens for each message, and runs through the set of criteria listed
 async def on_message(ctx):
     global jackBOOL
-    if ctx.author == bot.user.id:
+    if ctx.author.id == bot.user.id:
         return
-    elif ctx.author != bot.user.id:
+    elif ctx.author.id != bot.user.id:
         if ctx.content.find("gay spar") != -1:
             await ctx.reply('fruity', mention_author=True)
         elif ctx.content.find("eddie") != -1:
             await ctx.reply('fucker', mention_author=True)
+        elif ctx.content.find("fun fact") != -1:
+            rand = random.randint(1, checkFunFactsLength())
+            msg = weatherFunFact()
+            output = msg[f'{rand}']
+            await ctx.reply(output, mention_author=True)
 
         if ctx.author.id == 442008100392927233 & jackBOOL:
             await ctx.reply('shut up bitch', mention_author=True)
@@ -273,7 +279,7 @@ def cleanMetTime(string):
 
 def checkCity(arg):
     count = 0
-    with open('ie.json', 'r', encoding='utf-8') as file:
+    with open('jsons/ie.json', 'r', encoding='utf-8') as file:
         out = json.load(file)
         for i in range(0, len(out)):
             data = out[i]['city']
@@ -286,7 +292,7 @@ def checkCity(arg):
 
 def countCity(arg):
     count = 0
-    with open('ie.json', 'r', encoding='utf-8') as file:
+    with open('jsons/ie.json', 'r', encoding='utf-8') as file:
         out = json.load(file)
         for i in range(0, len(out)):
             data = out[i]['city']
@@ -298,7 +304,8 @@ def countCity(arg):
 
 
 def findCityData(num):
-    with open('ie.json', 'r', encoding='utf-8') as file:
+    cwd = os.getcwd()
+    with open(f'{cwd}/jsons/ie.json', 'r', encoding='utf-8') as file:
         out = json.load(file)
         lat = out[num]['lat']
         long = out[num]['lng']
@@ -310,6 +317,21 @@ def getShortName(name):
     return name.replace('North', 'N').replace('East', 'E').replace('South', 'S').replace('West', 'W').replace('north',
                                                                                                               'N').replace(
         'east', 'E').replace('south', 'S').replace('west', 'W').replace('by', 'b').replace(' ', '').replace('-', '')
+
+
+def checkFunFactsLength():
+    cwd = os.getcwd()
+    with open(f'{cwd}/jsons/funfacts.json', 'r') as file:
+        out = json.load(file)
+        keysLst = list(out.keys())
+        return len(keysLst)
+
+
+def weatherFunFact():
+    cwd = os.getcwd()
+    with open(f'{cwd}/jsons/funfacts.json', 'r') as file:
+        out = json.load(file)
+        return out
 
 
 if __name__ == '__main__':
