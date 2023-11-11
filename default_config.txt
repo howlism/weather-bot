@@ -1,0 +1,9 @@
+{
+  "maxPoints": "32",
+  "dToken": "DISCORD_TOKEN_GOES_HERE",
+  "openweatherapi": "OPENWEATHER_API_KEY_GOES_HERE"
+}
+This is the current format for the config.json file that is read on bot start. To make this work with your bot, you'll
+need to input your discord token, as well as and openweatherapi. maxPoints can be customised for the short name of the
+wind directions. When setting up the bot to run yourself, delete all the plain text outside the {} and rename this file
+config.json. Then assign the appropriate values to dToken and openweatherapi. Enjoy!
