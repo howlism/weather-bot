@@ -135,6 +135,7 @@ def get_openweather_forecast(location):
     response = requests.get(request_url)
     if response.status_code == 200:
         data = response.json()
+        print(data)
         return data
     else:
         print("request status is bad")
@@ -157,6 +158,7 @@ def openweatherDataToEmbed(data, arg):
     name = arg.capitalize()
     weather = data['weather'][0]['description'].capitalize()
     temperature = round(float(data['main']['temp']) - 273.15, 1)
+    feels_like = round(float(data['main']['feels_like']) - 273.15, 1)
     country = data['sys']['country']
     lat, lon = data['coord']['lat'], data['coord']['lon']
     pressure = data['main']['pressure']
@@ -171,7 +173,7 @@ def openweatherDataToEmbed(data, arg):
     title = f"Weather for {name} :flag_{country_code}:"
     embed = discord.Embed(title=title)
     embed.add_field(name="Weather description:", value=weather, inline=False)
-    embed.add_field(name="Avg. Temperature:", value=f"{temperature}°C", inline=False)
+    embed.add_field(name="Avg. Temperature (Feels like):", value=f"{temperature}°C ({feels_like}°C)", inline=False)
     embed.add_field(name="Pressure:", value=f"{pressure}hPa", inline=False)
     embed.add_field(name="Humidity:", value=f"{humidity}%", inline=False)
     embed.add_field(name="Visibility:", value=f"{visibility}m", inline=False)
