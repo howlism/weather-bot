@@ -22,7 +22,7 @@ print("vars assigned")
 # stuff to deal with the api requests
 OPENWEATHER_FORECAST_BASE_URL = 'http://api.openweathermap.org/data/2.5/weather'
 METEIREANN_BASE_URL = 'http://metwdb-openaccess.ichec.ie/metno-wdb2ts/locationforecast?'
-# maxPoints found in the config.txt jackBOOL relates to the jack command (making jack's life hard :>)
+# relates to the jack command (making jack's life hard :>)
 jackBOOL = False
 # standard bot initialization: currently using all intents until i figure out what all of
 # what i want the finished bot to do
@@ -44,9 +44,11 @@ async def on_message(ctx):
     elif ctx.author.id != bot.user.id:
         if ctx.content.find("gay spar") != -1:
             await ctx.reply('fruity', mention_author=True)
+            await ctx.message.add_reaction('🏳️‍🌈')
         elif ctx.content.find("eddie") != -1:
             await ctx.reply('fucker', mention_author=True)
         elif ctx.content.find("fun fact") != -1:
+            await ctx.message.add_reaction('👌')
             rand = random.randint(1, checkFunFactsLength())
             msg = weatherFunFact()
             output = msg[f'{rand}']
@@ -60,6 +62,11 @@ async def on_message(ctx):
 # basic test to see if the bot is there
 async def hello(ctx: commands.Context):
     await ctx.send("Hello")
+
+
+@bot.command()
+async def snake(ctx: commands.Context):
+    await ctx.message.add_reaction('🐍')
 
 
 @bot.command()
@@ -94,18 +101,64 @@ async def forecast(ctx, arg='cobh'):
 @bot.command()
 # gets the current forecast for met eireann
 async def met(ctx, arg='cobh'):
-    if arg:
-        if checkCity(arg):
-            x = countCity(arg)
-            output = findCityData(x)
-            data = get_met_forecast(output[0], output[1])
-            name = arg.capitalize()
-            embed = metDataToEmbed(data, output[0], output[1], name)
-            await ctx.send(embed=embed)
+    def check(reaction, user):
+        return user == ctx.author and (
+                str(reaction.emoji) == "📊" or "🌧️" or "☁️" or "⬅" or "5️⃣" or "6️⃣" or "7️⃣" or "8️⃣" or "9️⃣" or "➡️")
+
+    if checkCity(arg):
+        x = countCity(arg)
+        output = findCityData(x)
+        data = get_met_forecast(output[0], output[1])
+        name = arg.capitalize()
+        embeds = metDataToEmbed(data, output[0], output[1], name)
+        msg = await ctx.send(embed=embeds['splash'])
+        await msg.add_reaction('📊')
+        await msg.add_reaction('🌧️')
+        await msg.add_reaction('☁️')
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+        except TimeoutError:
+            await msg.clear_reactions()
         else:
-            await ctx.reply("Please specify an Irish city.")
+            if str(reaction.emoji) == '📊':
+                await msg.edit(embed=embeds['expanded'])
+                await msg.clear_reactions()
+                await msg.add_reaction('⬅')
+                try:
+                    reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+                except TimeoutError:
+                    await msg.clear_reactions()
+                else:
+                    if str(reaction.emoji) == '⬅':
+                        await msg.delete()
+                        await met(ctx, arg)
+            elif str(reaction.emoji) == '🌧️':
+                await msg.edit(embed=embeds['precip'])
+                await msg.clear_reactions()
+                await msg.add_reaction('⬅')
+                try:
+                    reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+                except TimeoutError:
+                    await msg.clear_reactions()
+                else:
+                    if str(reaction.emoji) == '⬅':
+                        await msg.delete()
+                        await met(ctx, arg)
+            elif str(reaction.emoji) == '☁️':
+                await msg.edit(embed=embeds['cloud'])
+                await msg.clear_reactions()
+                await msg.add_reaction('⬅')
+                try:
+                    reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+                except TimeoutError:
+                    await msg.clear_reactions()
+                else:
+                    if str(reaction.emoji) == '⬅':
+                        await msg.delete()
+                        await met(ctx, arg)
+
     else:
-        await ctx.reply("Please specify a city.")
+        await ctx.reply("Please specify an Irish city.")
 
 
 @bot.command()
@@ -116,6 +169,7 @@ async def git(ctx):
 
 @bot.command()
 async def whelp(ctx):
+    # bot help command
     embed = discord.Embed(title="Weather-Bot Help", description=f'List of currently supported commands!')
     embed.add_field(name='$echo (arg)', value='Replies to your message with whatever the (arg) is.')
     embed.add_field(name='$jack', value=f'Enables jack mode. Currently: {jackBOOL}')
@@ -145,6 +199,7 @@ def get_met_forecast(lat, long):
     # requests data from met eireann, checks the request went properly and returns the json data as data
     # (converted from xml)
     request_url = f'{METEIREANN_BASE_URL}lat={lat};long={long}'
+    print(request_url)
     response = requests.get(request_url)
     if response.status_code == 200:
         data = xmltodict.parse(response.content)
@@ -184,41 +239,31 @@ def openweatherDataToEmbed(data, arg):
 
 
 def metDataToEmbed(data, lat, long, name):
-    # taking specific bits of the data dict, and saving them as separate variables for return in the embed.
-    # return forecast
+    # defines variables from met eireann forecast data
     data_type = data['weatherdata']['product']['time'][0]['@datatype']
-    # return hours applicable (start)
     start_time = data['weatherdata']['product']['time'][0]['@from']
-    # return hours applicable (end)
     end_time = data['weatherdata']['product']['time'][0]['@to']
-    # return lat, long in lst
-    # lat, long = (data['weatherdata']['product']['time'][0]['location']['@latitude'],
-    #              data['weatherdata']['product']['time'][0]['location']['@longitude'])
-    # return temperature value
     temp = data['weatherdata']['product']['time'][0]['location']['temperature']['@value']
-    # return wind direction
     wind_dir = float(data['weatherdata']['product']['time'][0]['location']['windDirection']['@deg'])
-    # return wind speed in mps & beaufort
     wind_speed, wind_beaufort = (data['weatherdata']['product']['time'][0]['location']['windSpeed']['@mps'],
                                  data['weatherdata']['product']['time'][0]['location']['windSpeed']['@beaufort'])
-    # return wind gusts in mps
     wind_gust = data['weatherdata']['product']['time'][0]['location']['windGust']['@mps']
-    # return global radiation & unit
     global_rads, rads_unit = (data['weatherdata']['product']['time'][0]['location']['globalRadiation']['@value'],
                               data['weatherdata']['product']['time'][0]['location']['globalRadiation']['@unit'])
-    # return humidity
     humidity = data['weatherdata']['product']['time'][0]['location']['humidity']['@value']
-    # return pressure
     pressure = data['weatherdata']['product']['time'][0]['location']['pressure']['@value']
-    # return cloud cover
     cloud_cover = data['weatherdata']['product']['time'][0]['location']['cloudiness']['@percent']
-    # return the three heights of cloud cover percentages
     low_cloud, mid_cloud, high_cloud = (
         data['weatherdata']['product']['time'][0]['location']['lowClouds']['@percent'],
         data['weatherdata']['product']['time'][0]['location']['mediumClouds']['@percent'],
         data['weatherdata']['product']['time'][0]['location']['highClouds']['@percent'])
-    # return dewpoint temp
     dewpoint = data['weatherdata']['product']['time'][0]['location']['dewpointTemperature']['@value']
+    avg_rainfall = data['weatherdata']['product']['time'][1]['location']['precipitation']['@value']
+    min_rainfall = data['weatherdata']['product']['time'][1]['location']['precipitation']['@minvalue']
+    max_rainfall = data['weatherdata']['product']['time'][1]['location']['precipitation']['@maxvalue']
+    prob = data['weatherdata']['product']['time'][1]['location']['precipitation']['@probability']
+
+    # cleans up variables for output
     heading_name = calcPoint(wind_dir, 32)
     short_name = getShortName(heading_name)
     wind_speed = float(wind_speed)
@@ -228,18 +273,54 @@ def metDataToEmbed(data, lat, long, name):
     cleaned_start_time = cleanMetTime(start_time)
     cleaned_end_time = cleanMetTime(end_time)
     DATA_TYPE = data_type.capitalize()
-    embed = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
+
+    # applies those variables in a discord embed
+    # splash is the first embed that will appear when the command is called
+    splash = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
                                 f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
-    embed.add_field(name='Temperature:', value=f'{temp}°C')
-    embed.add_field(name='Wind Direction:', value=f'{wind_dir}, {short_name}', inline=True)
-    embed.add_field(name='Wind Speed:', value=f'{wind_speed_knots}kts', inline=True)
-    embed.add_field(name='Wind Gust:', value=f'{wind_gust_knots}kts', inline=True)
-    embed.add_field(name='Beaufort:', value=f'Force {wind_beaufort}', inline=True)
-    embed.add_field(name='Humidity:', value=f'{humidity}%')
-    embed.add_field(name='Pressure:', value=f'{pressure}hPa')
-    embed.add_field(name='Cloud Cover:', value=f'{cloud_cover}%')
-    embed.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
-    return embed
+    splash.add_field(name='Temperature:', value=f'{temp}°C')
+    splash.add_field(name='Wind Direction:', value=f'{wind_dir}, {short_name}', inline=True)
+    splash.add_field(name='Wind Speed:', value=f'{wind_speed_knots}kts', inline=True)
+    splash.add_field(name='Wind Gust:', value=f'{wind_gust_knots}kts', inline=True)
+    # splash.add_field(name='Beaufort:', value=f'Force {wind_beaufort}', inline=True)
+    # splash.add_field(name='Humidity:', value=f'{humidity}%')
+    # splash.add_field(name='Pressure:', value=f'{pressure}hPa')
+    splash.add_field(name='Cloud Cover:', value=f'{cloud_cover}%')
+    splash.add_field(name='Chance of Rain 🌧️:', value=f'{prob}%')
+    splash.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
+
+    # expanded is a more detailed version of splash
+    expanded = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
+                                f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
+    expanded.add_field(name='Temperature:', value=f'{temp}°C')
+    expanded.add_field(name='Wind Direction:', value=f'{wind_dir}, {short_name}', inline=True)
+    expanded.add_field(name='Wind Speed:', value=f'{wind_speed_knots}kts', inline=True)
+    expanded.add_field(name='Wind Gust:', value=f'{wind_gust_knots}kts', inline=True)
+    expanded.add_field(name='Beaufort:', value=f'Force {wind_beaufort}', inline=True)
+    expanded.add_field(name='Global Radiation:', value=f'{global_rads}{rads_unit}')
+    expanded.add_field(name='Humidity:', value=f'{humidity}%')
+    expanded.add_field(name='Pressure:', value=f'{pressure}hPa')
+    expanded.add_field(name='Cloud Cover:', value=f'{cloud_cover}%')
+    expanded.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
+
+    # cloud is expanded data on clouds alone
+    cloud = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
+                                f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
+    cloud.add_field(name='Cloud Cover ☁️:', value=f'{cloud_cover}%')
+    cloud.add_field(name='High Cloud Cover ☁️:', value=f'{high_cloud}%', inline=True)
+    cloud.add_field(name='Mid Cloud Cover ☁️:', value=f'{mid_cloud}%', inline=True)
+    cloud.add_field(name='Low Cloud Cover ☁️:', value=f'{low_cloud}%', inline=True)
+    cloud.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
+
+    # precip will be expanded data on precipitation
+    precip = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
+                                f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
+    precip.add_field(name='Chance of Rain 🌧️:', value=f'{prob}%')
+    precip.add_field(name='Average Rainfall 🌧️:', value=f'{avg_rainfall}mm', inline=True)
+    precip.add_field(name='Min Rainfall 🌧️:', value=f'{min_rainfall}mm')
+    precip.add_field(name='Max Rainfall 🌧️:', value=f'{max_rainfall}mm', inline=True)
+    precip.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
+    return {'splash': splash, 'expanded': expanded, 'cloud': cloud, 'precip': precip}
 
 
 def calcPoint(degHead, points):  # # credits to tony goodwin @ https://codegolf.stackexchange.com/questions/21927
@@ -294,7 +375,8 @@ def checkCity(arg):
 
 def countCity(arg):
     count = 0
-    with open('jsons/ie.json', 'r', encoding='utf-8') as file:
+    cwd = os.getcwd()
+    with open(f'{cwd}/jsons/ie.json', 'r', encoding='utf-8') as file:
         out = json.load(file)
         for i in range(0, len(out)):
             data = out[i]['city']
