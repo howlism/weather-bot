@@ -26,7 +26,7 @@ bot = commands.Bot('$', intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"We have logged in as {bot.user} with {bot.user.id}")
+    print(f"We have logged in as {bot.user} with {bot.user.id} Version: {data['version']}")
 
 
 @bot.listen('on_message')
@@ -96,6 +96,27 @@ async def met(ctx, arg='cobh'):
             await ctx.reply("Please specify an Irish city.")
     else:
         await ctx.reply("Please specify a city.")
+
+
+@bot.command()
+async def git(ctx):
+    # replies to the command with the repo
+    await ctx.reply("https://github.com/howlism/weather-bot")
+
+
+@bot.command()
+async def whelp(ctx):
+    embed = discord.Embed(title="Weather-Bot Help", description=f'List of currently supported commands!')
+    embed.add_field(name='$echo (arg)', value='Replies to your message with whatever the (arg) is.')
+    embed.add_field(name='$jack', value=f'Enables jack mode. Currently: {jackBOOL}')
+    embed.add_field(name='$forecast', value=f'Returns a forecast for any city in the world. Source: OpenWeather. '
+                                            f'Default = Cobh')
+    embed.add_field(name='$met', value=f'Returns a forecast for any major city in Ireland. Source: Met Eireann. '
+                                       f'Default: Cobh')
+    embed.add_field(name='$git', value=f'Returns the link to the public repo! '
+                                       f'Report issues and check out the code there.')
+    embed.set_footer(text=f"Developed by howlism. Version: {data['version']}")
+    await ctx.send(embed=embed)
 
 
 def get_openweather_forecast(location):
