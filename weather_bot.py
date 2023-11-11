@@ -41,9 +41,8 @@ async def on_message(ctx):
         elif ctx.content.find("eddie") != -1:
             await ctx.reply('fucker', mention_author=True)
 
-        if ctx.author.id == 442008100392927233:
-            if jackBOOL:
-                await ctx.reply('shut up bitch', mention_author=True)
+        if ctx.author.id == 442008100392927233 & jackBOOL:
+            await ctx.reply('shut up bitch', mention_author=True)
 
 
 @bot.command()
