@@ -101,12 +101,18 @@ async def jack(ctx):
 @bot.command()
 # gets a forecast from openweatherapi, parses the data and embeds it into a discord embed
 async def forecast(ctx, arg='cobh'):
-    if arg:
-        data = get_openweather_forecast(arg)
-        embed = openweatherDataToEmbed(data, arg)
-        await ctx.send(embed=embed)
-    else:
-        await ctx.reply("Please specify a city.")
+    data = get_openweather_forecast(arg)
+    embed = openweatherDataToEmbed(data, arg)
+    await ctx.send(embed=embed)
+
+
+@bot.command()
+# compare forecasts between two cities
+async def compare(ctx, arg='cobh', arg2='vienna'):
+    arg_data = get_openweather_forecast(arg)
+    arg2_data = get_openweather_forecast(arg2)
+    embed = comparisonEmbed(arg_data, arg2_data, arg, arg2)
+    await ctx.send(embed=embed)
 
 
 @bot.command()
@@ -114,7 +120,7 @@ async def forecast(ctx, arg='cobh'):
 async def met(ctx, arg='cobh'):
     def check(reaction, user):
         return user == ctx.author and (
-                str(reaction.emoji) == "📊" or "🌧️" or "☁️" or "⬅" or "5️⃣" or "6️⃣" or "7️⃣" or "8️⃣" or "9️⃣" or "➡️")
+                str(reaction.emoji) == "📊" or "🌧️" or "☁️" or "⬅")
 
     async def metEdits(msg, dict):
         await msg.clear_reactions()
@@ -185,7 +191,7 @@ async def whelp(ctx):
     def check(reaction, user):
         return user == ctx.author and (
                 str(reaction.emoji) ==
-                "1️⃣" or "2️⃣" or "3️⃣" or "4️⃣" or "5️⃣" or "6️⃣" or "7️⃣" or "8️⃣" or "9️⃣" or "➡️" or '⬅')
+                "1️⃣" or "2️⃣" or "3️⃣" or "4️⃣" or "5️⃣" or '6️⃣' or '⬅')
 
     def embedCreation():
         splash_help = discord.Embed(title="🌤️ Weather-Bot Help", description=f'List of currently supported commands!')
@@ -198,6 +204,9 @@ async def whelp(ctx):
                                     f'Default: Cobh')
         splash_help.add_field(name='5. $git', value=f'Returns the link to the public repo! '
                                                     f'Report issues and check out the code there.')
+        splash_help.add_field(name='6. $compare (arg) (arg)', value=f'Returns a comparison between two forecasts '
+                                                                    f'for any two city in the world. Source: '
+                                                                    f'OpenWeather. Defaults = Cobh, Vienna')
         splash_help.add_field(name='Need help with a specific command?', value='Click its corresponding '
                                                                                'number in the reactions!')
         splash_help.set_footer(text=f"Developed by howlism. Version: {ver}")
@@ -233,7 +242,14 @@ async def whelp(ctx):
         git_help.add_field(name='$git',
                            value='Returns the link to the public repo! Report issues and check out the code there.')
         git_help.set_footer(text=f"Developed by howlism. Version: {ver}")
-        return [splash_help, echo_help, jack_help, forecast_help, met_help, git_help]
+
+        compare_help = discord.Embed(title='🌤️ $compare Help', description='Syntax and functionality for $forecast!')
+        compare_help.add_field(name='$compare (arg) (arg)', value=f'Returns a comparison between two forecasts '
+                                                                  f'for any two city in the world. Source: '
+                                                                  f'OpenWeather. Defaults = Cobh, Vienna')
+        compare_help.add_field(name='arg:', value=f'City name.')
+        compare_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+        return [splash_help, echo_help, jack_help, forecast_help, met_help, git_help, compare_help]
 
     async def embedEdit(embed, arg, lst):
         await embed.edit(embed=lst[arg])
@@ -254,6 +270,7 @@ async def whelp(ctx):
         await msg.add_reaction('3️⃣')
         await msg.add_reaction('4️⃣')
         await msg.add_reaction('5️⃣')
+        await msg.add_reaction('6️⃣')
         try:
             reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
         except TimeoutError:
@@ -274,10 +291,14 @@ async def whelp(ctx):
             elif str(reaction.emoji) == '5️⃣':
                 await msg.clear_reactions()
                 await embedEdit(msg, 5, embeds)
+            elif str(reaction.emoji) == '6️⃣':
+                await msg.clear_reactions()
+                await embedEdit(msg, 6, embeds)
 
     embeds = embedCreation()
     msg = await ctx.send(embed=embeds[0])
     await helpSplash(msg, embeds)
+
 
 def get_openweather_forecast(location):
     # requests data from openweather, checks the request went properly, and returns the json data as data
@@ -331,6 +352,48 @@ def openweatherDataToEmbed(data, arg):
     embed.add_field(name="Wind Speed ༄:", value=f"{wind_speed_knots}kts", inline=True)
     embed.add_field(name="Wind Dir 🧭:", value=f"{wind_dir}°, {short_name}", inline=True)
     embed.set_footer(text=f"Lat: {lat}, Lon: {lon}")
+    return embed
+
+
+def comparisonEmbed(data1, data2, name1, name2):
+    Name1 = name1.capitalize()
+    Name2 = name2.capitalize()
+    weather1 = data1['weather'][0]['description'].capitalize()
+    weather2 = data2['weather'][0]['description'].capitalize()
+    temperature1 = round(float(data1['main']['temp']) - 273.15, 1)
+    temperature2 = round(float(data2['main']['temp']) - 273.15, 1)
+    feels_like1 = round(float(data1['main']['feels_like']) - 273.15, 1)
+    feels_like2 = round(float(data2['main']['feels_like']) - 273.15, 1)
+    country1 = data1['sys']['country']
+    country2 = data2['sys']['country']
+    wind_speed1 = data1['wind']['speed']
+    wind_dir1 = data1['wind']['deg']
+    heading_name1 = calcPoint(wind_dir1, 32)
+    short_name1 = getShortName(heading_name1)
+    wind_speed_knots1 = round(wind_speed1 * 1.94384, 1)
+    wind_speed2 = data2['wind']['speed']
+    wind_dir2 = data2['wind']['deg']
+    heading_name2 = calcPoint(wind_dir2, 32)
+    short_name2 = getShortName(heading_name2)
+    wind_speed_knots2 = round(wind_speed2 * 1.94384, 1)
+    country_code1 = country1.lower()
+    country_code2 = country2.lower()
+    title = f"Comparison for {Name1} :flag_{country_code1}: and {Name2} :flag_{country_code2}:"
+    embed = discord.Embed(title=title)
+    embed.add_field(name=f"Weather description for {Name1} 📝:", value=weather1, inline=True)
+    embed.add_field(name=f"Weather description for {Name2} 📝:", value=weather2, inline=True)
+    embed.add_field(name='', value='')
+    embed.add_field(name=f"Avg. Temperature (Feels like) for {Name1} 🌡️:", value=f"{temperature1}°C ({feels_like1}°C)",
+                    inline=True)
+    embed.add_field(name=f"Avg. Temperature (Feels like) for {Name2} 🌡️:", value=f"{temperature2}°C ({feels_like2}°C)",
+                    inline=True)
+    embed.add_field(name='', value='')
+    embed.add_field(name=f"Wind Speed for {Name1} ༄:", value=f"{wind_speed_knots1}kts", inline=True)
+    embed.add_field(name=f"Wind Speed for {Name2} ༄:", value=f"{wind_speed_knots2}kts", inline=True)
+    embed.add_field(name='', value='')
+    embed.add_field(name=f"Wind Dir for {Name1} 🧭:", value=f"{wind_dir1}°, {short_name1}", inline=True)
+    embed.add_field(name=f"Wind Dir for {Name2} 🧭:", value=f"{wind_dir2}°, {short_name2}", inline=True)
+    embed.set_footer(text=f"Powered by Openweathermap.org")
     return embed
 
 
