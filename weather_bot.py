@@ -117,7 +117,7 @@ async def compare(ctx, arg='cobh', arg2='vienna'):
 
 @bot.command()
 # gets the current forecast for met eireann
-async def met(ctx, arg='cobh'):
+async def met(ctx, arg='cobh', time=0):
     def check(reaction, user):
         return user == ctx.author and (
                 str(reaction.emoji) == "📊" or "🌧️" or "☁️" or "⬅")
@@ -172,7 +172,7 @@ async def met(ctx, arg='cobh'):
         output = findCityData(x)
         data = get_met_forecast(output[0], output[1])
         name = arg.capitalize()
-        embeds = metDataToEmbed(data, output[0], output[1], name)
+        embeds = metDataToEmbed(data, output[0], output[1], name, time)
         msg = await ctx.send(embed=embeds['splash'])
         await metEdits(msg, embeds)
     else:
@@ -195,16 +195,16 @@ async def whelp(ctx):
 
     def embedCreation():
         splash_help = discord.Embed(title="🌤️ Weather-Bot Help", description=f'List of currently supported commands!')
-        splash_help.add_field(name='1. $echo (arg)', value='Replies to your message with whatever the (arg) is.')
+        splash_help.add_field(name='1. $echo (text)', value='Replies to your message with whatever the (text) is.')
         splash_help.add_field(name='2. $jack', value=f'Enables jack mode. Currently: {jackBOOL}')
-        splash_help.add_field(name='3. $forecast (arg)', value=f'Returns a forecast for any city in the world. Source: '
+        splash_help.add_field(name='3. $forecast (city)', value=f'Returns a forecast for any city in the world. Source: '
                                                                f'OpenWeather. Default = Cobh')
-        splash_help.add_field(name='4. $met (arg)',
+        splash_help.add_field(name='4. $met (city) (time)',
                               value=f'Returns a forecast for any major city in Ireland. Source: Met Eireann. '
                                     f'Default: Cobh')
         splash_help.add_field(name='5. $git', value=f'Returns the link to the public repo! '
                                                     f'Report issues and check out the code there.')
-        splash_help.add_field(name='6. $compare (arg) (arg)', value=f'Returns a comparison between two forecasts '
+        splash_help.add_field(name='6. $compare (city1) (city2)', value=f'Returns a comparison between two forecasts '
                                                                     f'for any two city in the world. Source: '
                                                                     f'OpenWeather. Defaults = Cobh, Vienna')
         splash_help.add_field(name='Need help with a specific command?', value='Click its corresponding '
@@ -212,8 +212,8 @@ async def whelp(ctx):
         splash_help.set_footer(text=f"Developed by howlism. Version: {ver}")
 
         echo_help = discord.Embed(title="🌤️ $echo Help", description=f'Syntax and functionality for $echo!')
-        echo_help.add_field(name='$echo (arg)', value='Replies to your message with whatever the (arg) is.')
-        echo_help.add_field(name='arg', value=f'Item to return in reply. Default: Tell me something to say back!')
+        echo_help.add_field(name='$echo (text)', value='Replies to your message with whatever the (text) is.')
+        echo_help.add_field(name='text:', value=f'Item to return in reply. Default: Tell me something to say back!')
         echo_help.add_field(name='Example: ',
                             value=f'$echo Hello! returns: Hello!')
         echo_help.set_footer(text=f"Developed by howlism. Version: {ver}")
@@ -224,16 +224,17 @@ async def whelp(ctx):
         jack_help.set_footer(text=f"Developed by howlism. Version: {ver}")
 
         forecast_help = discord.Embed(title='🌤️ $forecast Help', description='Syntax and functionality for $forecast!')
-        forecast_help.add_field(name='$forecast (arg)', value=f'Returns a forecast for any city in the world. Source: '
+        forecast_help.add_field(name='$forecast (city)', value=f'Returns a forecast for any city in the world. Source: '
                                                               f'OpenWeather. Default = Cobh')
-        forecast_help.add_field(name='arg:', value=f'City name.')
+        forecast_help.add_field(name='city:', value=f'City name.')
         forecast_help.set_footer(text=f"Developed by howlism. Version: {ver}")
 
         met_help = discord.Embed(title='🌤️ $met Help', description='Syntax and functionality for $met!')
-        met_help.add_field(name='$met (arg)',
+        met_help.add_field(name='$met (city) (time)',
                            value=f'Returns a forecast for any major city in Ireland. Source: Met Eireann. '
-                                 f'Default: Cobh')
-        met_help.add_field(name='arg:', value=f'Major Irish city name.')
+                                 f'Default: Cobh, 0hrs')
+        met_help.add_field(name='city:', value=f'Major Irish city name.')
+        met_help.add_field(name='time:', value=f'Retrieves the forecast in (time) hours.')
         met_help.add_field(name='Menus:', value=f'Clicking on the reactions to the message will change '
                                                 f'the contents to a more specified output of data.')
         met_help.set_footer(text=f"Developed by howlism. Version: {ver}")
@@ -244,10 +245,10 @@ async def whelp(ctx):
         git_help.set_footer(text=f"Developed by howlism. Version: {ver}")
 
         compare_help = discord.Embed(title='🌤️ $compare Help', description='Syntax and functionality for $forecast!')
-        compare_help.add_field(name='$compare (arg) (arg)', value=f'Returns a comparison between two forecasts '
+        compare_help.add_field(name='$compare (city1) (city2)', value=f'Returns a comparison between two forecasts '
                                                                   f'for any two city in the world. Source: '
                                                                   f'OpenWeather. Defaults = Cobh, Vienna')
-        compare_help.add_field(name='arg:', value=f'City name.')
+        compare_help.add_field(name='city1, city2:', value=f'City name.')
         compare_help.set_footer(text=f"Developed by howlism. Version: {ver}")
         return [splash_help, echo_help, jack_help, forecast_help, met_help, git_help, compare_help]
 
@@ -397,30 +398,33 @@ def comparisonEmbed(data1, data2, name1, name2):
     return embed
 
 
-def metDataToEmbed(data, lat, long, name):
+def metDataToEmbed(data, lat, long, name, time):
+    time = time*2
     # defines variables from met eireann forecast data
-    data_type = data['weatherdata']['product']['time'][0]['@datatype']
-    start_time = data['weatherdata']['product']['time'][0]['@from']
-    end_time = data['weatherdata']['product']['time'][0]['@to']
-    temp = data['weatherdata']['product']['time'][0]['location']['temperature']['@value']
-    wind_dir = float(data['weatherdata']['product']['time'][0]['location']['windDirection']['@deg'])
-    wind_speed, wind_beaufort = (data['weatherdata']['product']['time'][0]['location']['windSpeed']['@mps'],
-                                 data['weatherdata']['product']['time'][0]['location']['windSpeed']['@beaufort'])
-    wind_gust = data['weatherdata']['product']['time'][0]['location']['windGust']['@mps']
-    global_rads, rads_unit = (data['weatherdata']['product']['time'][0]['location']['globalRadiation']['@value'],
-                              data['weatherdata']['product']['time'][0]['location']['globalRadiation']['@unit'])
-    humidity = data['weatherdata']['product']['time'][0]['location']['humidity']['@value']
-    pressure = data['weatherdata']['product']['time'][0]['location']['pressure']['@value']
-    cloud_cover = data['weatherdata']['product']['time'][0]['location']['cloudiness']['@percent']
+    data_type = data['weatherdata']['product']['time'][time]['@datatype']
+    start_time = data['weatherdata']['product']['time'][time]['@from']
+    end_time = data['weatherdata']['product']['time'][time]['@to']
+    temp = data['weatherdata']['product']['time'][time]['location']['temperature']['@value']
+    wind_dir = float(data['weatherdata']['product']['time'][time]['location']['windDirection']['@deg'])
+    wind_speed, wind_beaufort = (data['weatherdata']['product']['time'][time]['location']['windSpeed']['@mps'],
+                                 data['weatherdata']['product']['time'][time]['location']['windSpeed']['@beaufort'])
+    wind_gust = data['weatherdata']['product']['time'][time]['location']['windGust']['@mps']
+    global_rads, rads_unit = (data['weatherdata']['product']['time'][time]['location']['globalRadiation']['@value'],
+                              data['weatherdata']['product']['time'][time]['location']['globalRadiation']['@unit'])
+    humidity = data['weatherdata']['product']['time'][time]['location']['humidity']['@value']
+    pressure = data['weatherdata']['product']['time'][time]['location']['pressure']['@value']
+    cloud_cover = data['weatherdata']['product']['time'][time]['location']['cloudiness']['@percent']
     low_cloud, mid_cloud, high_cloud = (
-        data['weatherdata']['product']['time'][0]['location']['lowClouds']['@percent'],
-        data['weatherdata']['product']['time'][0]['location']['mediumClouds']['@percent'],
-        data['weatherdata']['product']['time'][0]['location']['highClouds']['@percent'])
-    dewpoint = data['weatherdata']['product']['time'][0]['location']['dewpointTemperature']['@value']
-    avg_rainfall = data['weatherdata']['product']['time'][1]['location']['precipitation']['@value']
-    min_rainfall = data['weatherdata']['product']['time'][1]['location']['precipitation']['@minvalue']
-    max_rainfall = data['weatherdata']['product']['time'][1]['location']['precipitation']['@maxvalue']
-    prob = data['weatherdata']['product']['time'][1]['location']['precipitation']['@probability']
+        data['weatherdata']['product']['time'][time]['location']['lowClouds']['@percent'],
+        data['weatherdata']['product']['time'][time]['location']['mediumClouds']['@percent'],
+        data['weatherdata']['product']['time'][time]['location']['highClouds']['@percent'])
+    dewpoint = data['weatherdata']['product']['time'][time]['location']['dewpointTemperature']['@value']
+    rainfall_start_time = data['weatherdata']['product']['time'][time + 1]['@from']
+    rainfall_end_time = data['weatherdata']['product']['time'][time + 1]['@to']
+    avg_rainfall = data['weatherdata']['product']['time'][time + 1]['location']['precipitation']['@value']
+    min_rainfall = data['weatherdata']['product']['time'][time + 1]['location']['precipitation']['@minvalue']
+    max_rainfall = data['weatherdata']['product']['time'][time + 1]['location']['precipitation']['@maxvalue']
+    prob = data['weatherdata']['product']['time'][time + 1]['location']['precipitation']['@probability']
 
     # cleans up variables for output
     heading_name = calcPoint(wind_dir, 32)
@@ -431,6 +435,8 @@ def metDataToEmbed(data, lat, long, name):
     wind_gust_knots = round(wind_gust * 1.94384, 1)
     cleaned_start_time = cleanMetTime(start_time)
     cleaned_end_time = cleanMetTime(end_time)
+    cleaned_rain_start_time = cleanMetTime(rainfall_start_time)
+    cleaned_rain_end_time = cleanMetTime(rainfall_end_time)
     DATA_TYPE = data_type.capitalize()
 
     # applies those variables in a discord embed
@@ -460,6 +466,7 @@ def metDataToEmbed(data, lat, long, name):
     expanded.add_field(name='Humidity 💦:', value=f'{humidity}%')
     expanded.add_field(name='Pressure 🕛:', value=f'{pressure}hPa')
     expanded.add_field(name='Cloud Cover ☁️:', value=f'{cloud_cover}%')
+    expanded.add_field(name='Dewpoint temperature 💧:', value=f'{dewpoint}°C')
     expanded.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
 
     # cloud is expanded data on clouds alone
@@ -472,8 +479,8 @@ def metDataToEmbed(data, lat, long, name):
     cloud.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
 
     # precip will be expanded data on precipitation
-    precip = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_start_time[0]} @ {cleaned_start_time[1]}"
-                                 f" to {cleaned_end_time[0]} @ {cleaned_end_time[1]}.")
+    precip = discord.Embed(title=f"🇮🇪 Met Eireann {DATA_TYPE}, for {cleaned_rain_start_time[0]} @ "
+                                 f"{cleaned_rain_start_time[1]} to {cleaned_rain_end_time[0]} @ {cleaned_rain_end_time[1]}.")
     precip.add_field(name='Chance of Rain 🌧️:', value=f'{prob}%')
     precip.add_field(name='Average Rainfall 🌧️:', value=f'{avg_rainfall}mm', inline=True)
     precip.add_field(name='Min Rainfall 🌧️:', value=f'{min_rainfall}mm')
