@@ -7,6 +7,7 @@ import xmltodict
 from discord.ext import commands
 from dotenv import load_dotenv
 import random
+import feedparser
 
 # loads .env
 load_dotenv()
@@ -21,9 +22,10 @@ print("vars assigned")
 
 # stuff to deal with the api requests
 OPENWEATHER_FORECAST_BASE_URL = 'http://api.openweathermap.org/data/2.5/weather'
-METEIREANN_BASE_URL = 'http://metwdb-openaccess.ichec.ie/metno-wdb2ts/locationforecast?'
+MET_BASE_URL = 'http://metwdb-openaccess.ichec.ie/metno-wdb2ts/locationforecast?'
+MET_WEATHER_WARNINGS_BASE_URL = 'https://www.met.ie/warningsxml/rss.xml'
 # relates to the jack command (making jack's life hard :>)
-jackBOOL = False
+jack_bool = False
 # standard bot initialization: currently using all intents until i figure out what all of
 # what i want the finished bot to do
 intents = discord.Intents.all()
@@ -38,7 +40,7 @@ async def on_ready():
 @bot.listen('on_message')
 # this listens for each message, and runs through the set of criteria listed
 async def on_message(ctx):
-    global jackBOOL
+    global jack_bool
     if ctx.author.id == bot.user.id:
         return
     elif ctx.author.id != bot.user.id:
@@ -63,7 +65,7 @@ async def on_message(ctx):
             else:
                 await ctx.reply('<:smudge:726830894371045466>')
 
-        if ctx.author.id == 442008100392927233 & jackBOOL:
+        if ctx.author.id == 442008100392927233 & jack_bool:
             await ctx.reply('shut up bitch', mention_author=True)
 
 
@@ -89,13 +91,13 @@ async def echo(ctx, arg='Tell me something to say back!'):
 async def jack(ctx):
     if ctx.guild.id != 690691828307066930:
         return
-    global jackBOOL
-    if not jackBOOL:
+    global jack_bool
+    if not jack_bool:
         await ctx.reply("Jack mode enabled")
-        jackBOOL = True
+        jack_bool = True
     else:
         await ctx.reply("Jack mode disabled")
-        jackBOOL = False
+        jack_bool = False
 
 
 @bot.command()
@@ -185,28 +187,74 @@ async def git(ctx):
     await ctx.reply("https://github.com/howlism/weather-bot")
 
 
+@bot.command()
+async def mwarn(ctx):
+    # gets weather warnings from met.ie
+    data = get_met_warnings()
+    print(len(data['entries']))
+    for i in range(0, len(data['entries'])):
+        link = data['entries'][i]['link']
+        warning_data = get_warning_details(link)
+        onset_time = warning_data['alert']['info']['onset']
+        split_onset = onset_time.split('T')
+        digits_onset = split_onset[1].removesuffix('-00:00')
+        date_onset = split_onset[0].split('-')
+        cleaned_date_onset = date_onset[2] + "/" + date_onset[1] + "/" + date_onset[0]
+        expires_time = warning_data['alert']['info']['expires']
+        split_expires = expires_time.split('T')
+        digits_expires = split_expires[1].removesuffix('-00:00')
+        date_expires = split_expires[0].split('-')
+        cleaned_date_expires = date_expires[2] + "/" + date_expires[1] + "/" + date_expires[0]
+        time_sent = warning_data['alert']['sent']
+        split_sent = time_sent.split("T")
+        digits_sent = split_sent[1].removesuffix('-00:00')
+        date_sent = split_sent[0].split("-")
+        cleaned_date_sent = date_sent[2] + "/" + date_sent[1] + "/" + date_sent[0]
+        severity = warning_data['alert']['info']['severity']
+        warning = warning_data['alert']['info']['event']
+        if "Small Craft" in warning_data['alert']['info']['event']:
+            warning = warning_data['alert']['info']['event'] + " <:small_craft_warning:1173727065548259358>"
+        if 'Moderate' in warning_data['alert']['info']['severity']:
+            severity = warning_data['alert']['info']['severity'] + ' 🟨'
+        elif 'Severe' in warning_data['alert']['info']['severity']:
+            severity = warning_data['alert']['info']['severity'] + ' 🟧'
+        elif 'Extreme' in warning_data['alert']['info']['severity']:
+            severity = warning_data['alert']['info']['severity'] + ' 🟥'
+        warning_embed = discord.Embed(title=f"{warning_data['alert']['info']['headline']}",
+                                      description=f"{warning_data['alert']['info']['description']}")
+        warning_embed.add_field(name=f'Effective:', value=f'{cleaned_date_onset} @ {digits_onset} -> ' + '\n'
+                                                                                                         f'{cleaned_date_expires} @ {digits_expires}')
+        warning_embed.add_field(name="Type ⚠️:", value=f"{warning}")
+        warning_embed.add_field(name="Severity:", value=f"{severity}")
+        warning_embed.set_footer(text=f"Sent by: {warning_data['alert']['sender']} @ "
+                                      f"{digits_sent} on {cleaned_date_sent}")
+        await ctx.send(embed=warning_embed)
+
+
 # bot help command
 @bot.command()
 async def whelp(ctx):
     def check(reaction, user):
         return user == ctx.author and (
                 str(reaction.emoji) ==
-                "1️⃣" or "2️⃣" or "3️⃣" or "4️⃣" or "5️⃣" or '6️⃣' or '⬅')
+                "1️⃣" or "2️⃣" or "3️⃣" or "4️⃣" or "5️⃣" or '6️⃣' or '7️⃣' or '⬅')
 
     def embedCreation():
         splash_help = discord.Embed(title="🌤️ Weather-Bot Help", description=f'List of currently supported commands!')
         splash_help.add_field(name='1. $echo (text)', value='Replies to your message with whatever the (text) is.')
-        splash_help.add_field(name='2. $jack', value=f'Enables jack mode. Currently: {jackBOOL}')
-        splash_help.add_field(name='3. $forecast (city)', value=f'Returns a forecast for any city in the world. Source: '
-                                                               f'OpenWeather. Default = Cobh')
+        splash_help.add_field(name='2. $jack', value=f'Enables jack mode. Currently: {jack_bool}')
+        splash_help.add_field(name='3. $forecast (city)',
+                              value=f'Returns a forecast for any city in the world. Source: '
+                                    f'OpenWeather. Default = Cobh')
         splash_help.add_field(name='4. $met (city) (time)',
                               value=f'Returns a forecast for any major city in Ireland. Source: Met Eireann. '
                                     f'Default: Cobh')
         splash_help.add_field(name='5. $git', value=f'Returns the link to the public repo! '
                                                     f'Report issues and check out the code there.')
         splash_help.add_field(name='6. $compare (city1) (city2)', value=f'Returns a comparison between two forecasts '
-                                                                    f'for any two city in the world. Source: '
-                                                                    f'OpenWeather. Defaults = Cobh, Vienna')
+                                                                        f'for any two city in the world. Source: '
+                                                                        f'OpenWeather. Defaults = Cobh, Vienna')
+        splash_help.add_field(name='7. $mwarn', value=f'Returns all the Met.ie weather warnings currently in place.')
         splash_help.add_field(name='Need help with a specific command?', value='Click its corresponding '
                                                                                'number in the reactions!')
         splash_help.set_footer(text=f"Developed by howlism. Version: {ver}")
@@ -219,13 +267,13 @@ async def whelp(ctx):
         echo_help.set_footer(text=f"Developed by howlism. Version: {ver}")
 
         jack_help = discord.Embed(title='🌤️ $jack Help', description='Syntax and functionality for $jack!')
-        jack_help.add_field(name='$jack', value=f'Enables jack mode. Currently: {jackBOOL}')
+        jack_help.add_field(name='$jack', value=f'Enables jack mode. Currently: {jack_bool}')
         jack_help.add_field(name='Functionality:', value=f'Jack mode is specific to one server. IYKYK :>')
         jack_help.set_footer(text=f"Developed by howlism. Version: {ver}")
 
         forecast_help = discord.Embed(title='🌤️ $forecast Help', description='Syntax and functionality for $forecast!')
         forecast_help.add_field(name='$forecast (city)', value=f'Returns a forecast for any city in the world. Source: '
-                                                              f'OpenWeather. Default = Cobh')
+                                                               f'OpenWeather. Default = Cobh')
         forecast_help.add_field(name='city:', value=f'City name.')
         forecast_help.set_footer(text=f"Developed by howlism. Version: {ver}")
 
@@ -246,11 +294,16 @@ async def whelp(ctx):
 
         compare_help = discord.Embed(title='🌤️ $compare Help', description='Syntax and functionality for $forecast!')
         compare_help.add_field(name='$compare (city1) (city2)', value=f'Returns a comparison between two forecasts '
-                                                                  f'for any two city in the world. Source: '
-                                                                  f'OpenWeather. Defaults = Cobh, Vienna')
+                                                                      f'for any two city in the world. Source: '
+                                                                      f'OpenWeather. Defaults = Cobh, Vienna')
         compare_help.add_field(name='city1, city2:', value=f'City name.')
         compare_help.set_footer(text=f"Developed by howlism. Version: {ver}")
-        return [splash_help, echo_help, jack_help, forecast_help, met_help, git_help, compare_help]
+
+        warn_help = discord.Embed(title='🌤️ $mwarn Help', description='Syntax and functionality for $mwarn!')
+        warn_help.add_field(name='$mwarn',
+                            value='Returns all the Met.ie weather warnings currently in place.')
+        warn_help.set_footer(text=f"Developed by howlism. Version: {ver}")
+        return [splash_help, echo_help, jack_help, forecast_help, met_help, git_help, compare_help, warn_help]
 
     async def embedEdit(embed, arg, lst):
         await embed.edit(embed=lst[arg])
@@ -272,6 +325,7 @@ async def whelp(ctx):
         await msg.add_reaction('4️⃣')
         await msg.add_reaction('5️⃣')
         await msg.add_reaction('6️⃣')
+        await msg.add_reaction('7️⃣')
         try:
             reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
         except TimeoutError:
@@ -295,6 +349,9 @@ async def whelp(ctx):
             elif str(reaction.emoji) == '6️⃣':
                 await msg.clear_reactions()
                 await embedEdit(msg, 6, embeds)
+            elif str(reaction.emoji) == '7️⃣':
+                await msg.clear_reactions()
+                await embedEdit(msg, 7, embeds)
 
     embeds = embedCreation()
     msg = await ctx.send(embed=embeds[0])
@@ -316,7 +373,32 @@ def get_openweather_forecast(location):
 def get_met_forecast(lat, long):
     # requests data from met eireann, checks the request went properly and returns the json data as data
     # (converted from xml)
-    request_url = f'{METEIREANN_BASE_URL}lat={lat};long={long}'
+    request_url = f'{MET_BASE_URL}lat={lat};long={long}'
+    print(request_url)
+    response = requests.get(request_url)
+    if response.status_code == 200:
+        data = xmltodict.parse(response.content)
+        return data
+    else:
+        print("request status is bad")
+
+
+def get_met_warnings():
+    # requests data from met eireann, checks the request went properly and returns the json data as data
+    # (converted from xml)
+    request_url = MET_WEATHER_WARNINGS_BASE_URL
+    print(request_url)
+    response = requests.get(request_url)
+    if response.status_code == 200:
+        data = feedparser.parse(MET_WEATHER_WARNINGS_BASE_URL)
+        print(data)
+        return data
+    else:
+        print("request status is bad")
+
+
+def get_warning_details(link):
+    request_url = link
     print(request_url)
     response = requests.get(request_url)
     if response.status_code == 200:
@@ -399,7 +481,7 @@ def comparisonEmbed(data1, data2, name1, name2):
 
 
 def metDataToEmbed(data, lat, long, name, time):
-    time = time*2
+    time = time * 2
     # defines variables from met eireann forecast data
     data_type = data['weatherdata']['product']['time'][time]['@datatype']
     start_time = data['weatherdata']['product']['time'][time]['@from']
@@ -487,6 +569,10 @@ def metDataToEmbed(data, lat, long, name, time):
     precip.add_field(name='Max Rainfall 🌧️:', value=f'{max_rainfall}mm', inline=True)
     precip.set_footer(text=f"{name} Lat: {lat}, Lon: {long}")
     return {'splash': splash, 'expanded': expanded, 'cloud': cloud, 'precip': precip}
+
+
+def metWarningsToEmbed(data):
+    pass
 
 
 def calcPoint(degHead, points):  # # credits to tony goodwin @ https://codegolf.stackexchange.com/questions/21927
