@@ -4,10 +4,11 @@ import json
 import discord
 import requests
 import xmltodict
-from discord.ext import commands
+from discord.ext import commands, slash
 from dotenv import load_dotenv
 import random
 import feedparser
+import math
 
 # loads .env
 load_dotenv()
@@ -29,7 +30,7 @@ jack_bool = False
 # standard bot initialization: currently using all intents until i figure out what all of
 # what i want the finished bot to do
 intents = discord.Intents.all()
-bot = commands.Bot('$', intents=intents)
+bot = slash.SlashBot('$', intents=intents, debug_guild=690691828307066930)
 
 
 @bot.event
@@ -214,6 +215,12 @@ async def mwarn(ctx):
         warning = warning_data['alert']['info']['event']
         if "Small Craft" in warning_data['alert']['info']['event']:
             warning = warning_data['alert']['info']['event'] + " <:small_craft_warning:1173727065548259358>"
+        elif "Gale" in warning_data['alert']['info']['event']:
+            warning = warning_data['alert']['info']['event'] + " <:gale:1173762061453508669>"
+        elif "Storm Force" in warning_data['alert']['info']['event']:
+            warning = warning_data['alert']['info']['event'] + " <:stormforce:1173762057406005248>"
+        elif "Violent Storm Force" in warning_data['alert']['info']['event']:
+            warning = warning_data['alert']['info']['event'] + " <:stormforce:1173762057406005248>"
         if 'Moderate' in warning_data['alert']['info']['severity']:
             severity = warning_data['alert']['info']['severity'] + ' 🟨'
         elif 'Severe' in warning_data['alert']['info']['severity']:
@@ -229,6 +236,205 @@ async def mwarn(ctx):
         warning_embed.set_footer(text=f"Sent by: {warning_data['alert']['sender']} @ "
                                       f"{digits_sent} on {cleaned_date_sent}")
         await ctx.send(embed=warning_embed)
+
+
+conversion_types = ['truetomagnetic', 'magnetictocourse', 'truetocourse', 'coursetomagnetic', 'magnetictotrue',
+                    'coursetotrue']
+choose_conversion = slash.Option(description=f'Input type of conversion: {conversion_types}', required=True)
+true = slash.Option(description='Input true', required=True)
+variation = slash.Option(description='Input variation (w+, e-)', required=True)
+mag = slash.Option(description='Input magnetic', required=True)
+course = slash.Option(description='Input course', required=True)
+
+
+@bot.slash_cmd(name="truetomagnetic", description="Converts true to magnetic")
+async def true_to_magnetic(ctx: slash.Context, true: true, variation: variation):
+    if true.isdigit():
+        if variation[0] == '+':
+            if variation.removeprefix('+').isdigit():
+                output = int(true) + int(variation.removeprefix('+'))
+                await ctx.respond(f'Magnetic = {output}')
+            else:
+                await ctx.respond("Second argument is not a number")
+        elif variation[0] == '-':
+            if variation.removeprefix('-').isdigit():
+                output = int(true) - int(variation.removeprefix('-'))
+                await ctx.respond(f'Magnetic = {output}')
+            else:
+                await ctx.respond("Second argument is not a number")
+        else:
+            await ctx.respond("Invalid operator on second argument")
+    else:
+        await ctx.respond("First argument is not a number.")
+
+
+@bot.slash_cmd(name='magnetictotrue', description='Converts magnetic to true')
+async def magnetic_to_true(ctx: slash.Context, magnetic: mag, variation: variation):
+    if magnetic.isdigit():
+        if variation[0] == '+':
+            if variation.removeprefix('+').isdigit():
+                output = int(magnetic) - int(variation.removeprefix('+'))
+                await ctx.respond(f'Magnetic = {output}')
+            else:
+                await ctx.respond("Second argument is not a number")
+        elif variation[0] == '-':
+            if variation.removeprefix('-').isdigit():
+                output = int(magnetic) + int(variation.removeprefix('-'))
+                await ctx.respond(f'True = {output}')
+            else:
+                await ctx.respond("Second argument is not a number")
+        else:
+            await ctx.respond("Invalid operator on second argument")
+    else:
+        await ctx.respond("First argument is not a number.")
+
+
+@bot.slash_cmd(name='magnetictocourse', description='Converts magnetic to course')
+async def magnetic_to_course(ctx: slash.Context, magnetic: mag):
+    if magnetic.isdigit():
+        dev = round(-6 * math.sin((int(magnetic) * math.pi / 180) + math.pi / 4), 1)
+        output = int(magnetic) + int(dev)
+        await ctx.respond(f"Course = {output}")
+    else:
+        await ctx.respond("First argument is not a number.")
+
+
+@bot.slash_cmd(name='coursetomagnetic', description='Converts course to magnetic')
+async def course_to_magnetic(ctx: slash.Context, course: course):
+    if course.isdigit():
+        dev = round(-6 * math.sin((int(course) * math.pi / 180) + math.pi / 4), 1)
+        output = int(course) - int(dev)
+        await ctx.respond(f"Magnetic = {output}")
+    else:
+        await ctx.respond("First argument is not a number.")
+
+
+@bot.slash_cmd(name='truetocourse', description='Converts true to course')
+async def true_to_course(ctx: slash.Context, true: true, variation: variation):
+    if true.isdigit():
+        if variation.isdigit():
+            dev = round(-6 * math.sin((int(true) * math.pi / 180) + math.pi / 4), 1)
+            mag = int(true) + int(variation)
+            output = int(mag) + int(dev)
+            await ctx.respond(f"Course = {output}")
+        else:
+            await ctx.respond(f'Second argument is not a number.')
+    else:
+        await ctx.respond("First argument is not a number.")
+
+
+@bot.slash_cmd(name='coursetotrue', description='Converts course to true')
+async def course_to_true(ctx: slash.Context, course: course, variation: variation):
+    if course.isdigit():
+        if variation.isdigit():
+            dev = round(-6 * math.sin((int(course) * math.pi / 180) + math.pi / 4), 1)
+            mag = int(course) - int(dev)
+            output = int(mag) - int(variation)
+            await ctx.respond(f"True = {output}")
+        else:
+            await ctx.respond(f'Second argument is not a number.')
+    else:
+        await ctx.respond("First argument is not a number.")
+
+
+@bot.command()
+async def compass(ctx):
+    def check(reaction, user):
+        return user == ctx.author and (
+                str(reaction.emoji) ==
+                "1️⃣" or "2️⃣" or "3️⃣" or "4️⃣" or "5️⃣" or '6️⃣' or '7️⃣' or '⬅')
+
+    async def initialize_menu(msg, lst):
+        await msg.clear_reactions()
+        await msg.edit(embed=lst[0])
+        await msg.add_reaction('1️⃣')
+        await msg.add_reaction('2️⃣')
+        await msg.add_reaction('3️⃣')
+        await msg.add_reaction('4️⃣')
+        await msg.add_reaction('5️⃣')
+        await msg.add_reaction('6️⃣')
+        # await msg.add_reaction('7️⃣')
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+        except TimeoutError:
+            await msg.clear_reactions()
+        else:
+            if str(reaction.emoji) == '1️⃣':
+                await msg.clear_reactions()
+                await embed_edit(msg, 1, embeds)
+            elif str(reaction.emoji) == '2️⃣':
+                await msg.clear_reactions()
+                await embed_edit(msg, 2, embeds)
+            elif str(reaction.emoji) == '3️⃣':
+                await msg.clear_reactions()
+                await embed_edit(msg, 3, embeds)
+            elif str(reaction.emoji) == '4️⃣':
+                await msg.clear_reactions()
+                await embed_edit(msg, 4, embeds)
+            elif str(reaction.emoji) == '5️⃣':
+                await msg.clear_reactions()
+                await embed_edit(msg, 5, embeds)
+            elif str(reaction.emoji) == '6️⃣':
+                await msg.clear_reactions()
+                await embed_edit(msg, 6, embeds)
+            elif str(reaction.emoji) == '7️⃣':
+                await msg.clear_reactions()
+                await embed_edit(msg, 7, embeds)
+
+    def embed_creation():
+        splash_embed = discord.Embed(title='Welcome to the Compass Converted')
+        splash_embed.add_field(name='1. True to Magnetic', value='')
+        splash_embed.add_field(name='2. Magnetic to Course', value='')
+        splash_embed.add_field(name='3. True to Course', value='')
+        splash_embed.add_field(name='4. Course to Magnetic', value='')
+        splash_embed.add_field(name='5. Magnetic to True', value='')
+        splash_embed.add_field(name='6. Course to True', value='')
+        splash_embed.set_footer(text='Adapted from code by myusernameisjack')
+
+        TTM = discord.Embed(title='1. True to Magnetic')
+        TTM.add_field(name='/truetomagnetic "True" "Variation(W+ E-)": ', value='If variation is west, use plus, '
+                                                                                'if variation is east, use minus')
+        TTM.set_footer(text='Adapted from code by myusernameisjack')
+
+        MTC = discord.Embed(title='2. Magnetic to Course')
+        MTC.add_field(name='/magnetictocourse "Magnetic": ', value='')
+        MTC.set_footer(text='Adapted from code by myusernameisjack')
+
+        TTC = discord.Embed(title='3. True to Course')
+        TTC.add_field(name='/truetocourse "True" "Variation(W+ E-)": ', value='If variation is west, use plus, '
+                                                                              'if variation is east, use minus')
+        TTC.set_footer(text='Adapted from code by myusernameisjack')
+
+        TTC = discord.Embed(title='4. Course to Magnetic')
+        TTC.add_field(name='/coursetomagnetic "Course": ', value='')
+        TTC.set_footer(text='Adapted from code by myusernameisjack')
+
+        MTT = discord.Embed(title='5. Magnetic to True')
+        MTT.add_field(name='/magnetictotrue "Magnetic" "Variation(W+ E-)": ', value='If variation is west, use plus, '
+                                                                                    'if variation is east, use minus')
+        MTT.set_footer(text='Adapted from code by myusernameisjack')
+
+        CTT = discord.Embed(title='6. Course to True')
+        CTT.add_field(name='/coursetotrue "Course" "Variation(W+ E-)": ', value='If variation is west, use plus, '
+                                                                                'if variation is east, use minus')
+        CTT.set_footer(text='Adapted from code by myusernameisjack')
+        return [splash_embed, TTM, MTC, TTC, MTT, CTT]
+
+    async def embed_edit(embed, arg, lst):
+        await embed.edit(embed=lst[arg])
+        await msg.add_reaction('⬅')
+        try:
+            reaction, user = await bot.wait_for('reaction_add', timeout=20.0, check=check)
+        except TimeoutError:
+            await msg.clear_reactions()
+        else:
+            if str(reaction.emoji) == '⬅':
+                await initialize_menu(msg, embeds)
+
+    embeds = embed_creation()
+    msg = await ctx.send(embed=embeds[0])
+    await initialize_menu(msg, embeds)
+
 
 
 # bot help command
