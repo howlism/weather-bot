@@ -1,9 +1,12 @@
 import os
+import re
 import sys
 import json
 import discord
 import requests
+import requests as r
 import xmltodict
+from bs4 import BeautifulSoup
 from discord.ext import commands, slash
 from dotenv import load_dotenv
 import random
@@ -25,6 +28,7 @@ print("vars assigned")
 OPENWEATHER_FORECAST_BASE_URL = 'http://api.openweathermap.org/data/2.5/weather'
 MET_BASE_URL = 'http://metwdb-openaccess.ichec.ie/metno-wdb2ts/locationforecast?'
 MET_WEATHER_WARNINGS_BASE_URL = 'https://www.met.ie/warningsxml/rss.xml'
+TIDE_FORECAST_BASE_URL = 'https://www.tide-forecast.com/locations/Cobh-Ireland/tides/latest'
 # relates to the jack command (making jack's life hard :>)
 jack_bool = False
 # standard bot initialization: currently using all intents until i figure out what all of
@@ -338,6 +342,7 @@ async def course_to_true(ctx: slash.Context, course: course, variation: variatio
 
 
 @bot.command()
+# help command for all the slash compass commands
 async def compass(ctx):
     def check(reaction, user):
         return user == ctx.author and (
@@ -382,7 +387,7 @@ async def compass(ctx):
                 await embed_edit(msg, 7, embeds)
 
     def embed_creation():
-        splash_embed = discord.Embed(title='Welcome to the Compass Converted')
+        splash_embed = discord.Embed(title='Welcome to the Compass Converter')
         splash_embed.add_field(name='1. True to Magnetic', value='')
         splash_embed.add_field(name='2. Magnetic to Course', value='')
         splash_embed.add_field(name='3. True to Course', value='')
@@ -435,6 +440,44 @@ async def compass(ctx):
     msg = await ctx.send(embed=embeds[0])
     await initialize_menu(msg, embeds)
 
+
+@bot.command()
+async def tide(ctx, arg=0):
+    data, location = scrape_tides()
+    tidal_embed = discord.Embed(title=f'Tides for {location.removesuffix("(tomorrow)")} ({data[arg][0]})')
+    for i in range(arg, arg+4):
+        tidal_embed.add_field(name=f'{data[i][1][0]}', value=f'{data[i][1][1][0]} @ {data[i][1][1][1]}')
+
+    await ctx.send(embed=tidal_embed)
+
+
+def scrape_tides():
+    l1 = []
+    page = r.get("https://www.tide-forecast.com/tide/Cobh-Ireland/tide-times")
+    soup = BeautifulSoup(page.text, 'html.parser')
+    test = soup.findAll('div', attrs={'class': 'tide_flex_start'})
+    test_data = ""
+    for t in test:
+        test_data += t.text
+    # Extracting location
+    location_match = re.search(r'Tide Times for (.+?):', test_data)
+    if location_match:
+        location = location_match.group(1)
+        print("Location:", location)
+
+    # Extracting tide information
+    tide_info = re.findall(
+        r'((Low|High) Tide (\d{1,2}:\d{2} [AP]M)\((\w{3} \d{1,2} \w+?)\)(\d+\.\d+ m \(\d+\.\d+ ft\)))', test_data)
+    if tide_info:
+        for match in tide_info:
+            tide_type = match[1]
+            tide_time = match[2]
+            tide_date = match[3]
+            tide_height = match[4]
+            print(f"{tide_type} at {tide_time} on {tide_date}: {tide_height}")
+            l1.append([tide_date, [tide_time, [tide_type, tide_height]]])
+
+    return l1, location
 
 
 # bot help command
